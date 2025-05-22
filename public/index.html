@@ -5,146 +5,125 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Real-Time File Sharing</title>
   <style>
-    body {
-      font-family: sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #f3f4f6;
-    }
-    .container {
-      max-width: 700px;
-      margin: auto;
-      padding: 20px;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      margin-top: 40px;
-    }
-    h2 { text-align: center; }
-    input[type="file"] { display: block; margin: 20px auto; }
-    .file-preview {
-      text-align: center;
-      margin: 10px 0;
-    }
-    .progress-bar {
-      height: 10px;
-      background: #ddd;
-      border-radius: 5px;
-      overflow: hidden;
-      margin: 10px 0;
-    }
-    .progress {
-      height: 100%;
-      width: 0;
-      background: #4ade80;
-    }
-    .btn {
-      padding: 10px 20px;
-      background: #2563eb;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      display: block;
-      margin: 20px auto;
-    }
-    .connected {
-      text-align: center;
-      margin: 10px;
-    }
-    .received-files {
-      margin-top: 20px;
-    }
-    .file-entry {
-      padding: 10px;
-      border-bottom: 1px solid #ddd;
-    }
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .container { max-width: 600px; margin: auto; }
+    button { padding: 10px; margin: 5px; cursor: pointer; }
+    #filePreview { margin-top: 10px; }
+    #progressBar { width: 100%; height: 20px; background: #eee; }
+    #progress { height: 100%; width: 0%; background: green; }
+    #receivedFiles { margin-top: 20px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>📁 Real-Time File Sharing</h2>
-    <div class="connected">
-      Room ID: <strong id="roomId"></strong> | Connected Devices: <strong id="connectedCount">0</strong>
-    </div>
+    <h2>Real-Time File Sharing</h2>
+    <button onclick="createRoom()">Create Room</button>
+    <button onclick="joinRoom()">Join Room</button>
+    <p>Room ID: <span id="roomId">-</span></p>
+    <p>Total Devices Connected: <span id="deviceCount">0</span></p>
 
-    <input type="file" id="fileInput" multiple />
-    <div id="preview" class="file-preview"></div>
-    <button class="btn" id="sendBtn">Send</button>
-    <div id="progressContainer"></div>
+    <input type="file" id="fileInput" onchange="previewFile()" />
+    <div id="filePreview"></div>
+    <button onclick="sendFile()">Send</button>
+    <div id="progressBar"><div id="progress"></div></div>
 
-    <div class="received-files">
-      <h3>📥 Received Files</h3>
-      <div id="receivedFiles"></div>
+    <div id="receivedFiles">
+      <h3>Received Files</h3>
+      <ul id="fileList"></ul>
     </div>
   </div>
 
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script>
-    const socket = io();
-    const roomId = Math.floor(100000 + Math.random() * 900000).toString();
-    document.getElementById('roomId').textContent = roomId;
-    socket.emit('join-room', roomId);
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<script>
+    const socket = io('https://your-app-name.onrender.com'); // ✅ use your actual render URL
+    let currentRoom = null;
+    let selectedFile = null;
 
-    let selectedFiles = [];
+    function createRoom() {
+      const roomId = Math.floor(100000 + Math.random() * 900000).toString();
+      currentRoom = roomId;
+      document.getElementById('roomId').textContent = roomId;
+      socket.emit('create-room', roomId);
+    }
 
-    document.getElementById('fileInput').addEventListener('change', (e) => {
-      selectedFiles = Array.from(e.target.files);
-      const preview = document.getElementById('preview');
-      preview.innerHTML = '';
-      selectedFiles.forEach(file => {
-        const div = document.createElement('div');
-        div.innerHTML = `<strong>${file.name}</strong> - ${(file.size / 1024).toFixed(2)} KB`;
-        preview.appendChild(div);
-      });
+    function joinRoom() {
+      const roomId = prompt('Enter Room ID:');
+      if (roomId) {
+        currentRoom = roomId;
+        document.getElementById('roomId').textContent = roomId;
+        socket.emit('join-room', roomId);
+      }
+    }
+
+    socket.on('update-count', count => {
+      document.getElementById('deviceCount').textContent = count;
     });
 
-    socket.on('connected-count', count => {
-      document.getElementById('connectedCount').textContent = count;
-    });
-
-    document.getElementById('sendBtn').addEventListener('click', () => {
-      selectedFiles.forEach(file => {
+    function previewFile() {
+      const file = document.getElementById('fileInput').files[0];
+      selectedFile = file;
+      if (file) {
         const reader = new FileReader();
         reader.onload = () => {
-          socket.emit('send-file', {
-            name: file.name,
-            size: file.size,
-            data: reader.result,
-            room: roomId
-          });
-        };
-
-        reader.readAsArrayBuffer(file);
-
-        // Progress UI
-        const progressBar = document.createElement('div');
-        progressBar.className = 'progress-bar';
-        const bar = document.createElement('div');
-        bar.className = 'progress';
-        progressBar.appendChild(bar);
-        document.getElementById('progressContainer').appendChild(progressBar);
-
-        let progress = 0;
-        const simulateProgress = setInterval(() => {
-          if (progress >= 100) {
-            clearInterval(simulateProgress);
-          } else {
-            progress += 10;
-            bar.style.width = progress + '%';
+          const preview = document.getElementById('filePreview');
+          preview.innerHTML = `<p><strong>${file.name}</strong> (${(file.size / 1024).toFixed(2)} KB)</p>`;
+          if (file.type.startsWith('image/')) {
+            preview.innerHTML += `<img src="${reader.result}" alt="preview" width="100" />`;
           }
-        }, 100);
-      });
-    });
+        };
+        reader.readAsDataURL(file);
+      }
+    }
 
-    socket.on('receive-file', (file) => {
-      const fileEntry = document.createElement('div');
-      fileEntry.className = 'file-entry';
-      fileEntry.textContent = `${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
-      document.getElementById('receivedFiles').appendChild(fileEntry);
+    function sendFile() {
+      if (!selectedFile || !currentRoom) return alert('Select a file and join a room first.');
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        const arrayBuffer = e.target.result;
+        const chunkSize = 64 * 1024;
+        let offset = 0;
+        let progress = document.getElementById('progress');
+
+        function sendChunk() {
+          const chunk = arrayBuffer.slice(offset, offset + chunkSize);
+          socket.emit('file-chunk', {
+            room: currentRoom,
+            name: selectedFile.name,
+            size: selectedFile.size,
+            type: selectedFile.type,
+            data: chunk,
+            isLast: offset + chunkSize >= arrayBuffer.byteLength
+          });
+          offset += chunkSize;
+          progress.style.width = `${(offset / arrayBuffer.byteLength) * 100}%`;
+
+          if (offset < arrayBuffer.byteLength) {
+            setTimeout(sendChunk, 10);
+          }
+        }
+
+        sendChunk();
+      };
+      reader.readAsArrayBuffer(selectedFile);
+    }
+
+    let receivedBuffers = {};
+
+    socket.on('receive-file', ({ name, size, data, type, isLast, senderId }) => {
+      if (!receivedBuffers[senderId]) receivedBuffers[senderId] = [];
+      receivedBuffers[senderId].push(data);
+
+      if (isLast) {
+        const blob = new Blob(receivedBuffers[senderId]);
+        const url = URL.createObjectURL(blob);
+        const fileList = document.getElementById('fileList');
+        const item = document.createElement('li');
+        item.innerHTML = `<a href="${url}" download="${name}">${name}</a> (${(size / 1024).toFixed(2)} KB)`;
+        fileList.appendChild(item);
+        delete receivedBuffers[senderId];
+      }
     });
   </script>
-
-  <!-- Node.js server code should serve this HTML and handle Socket.IO -->
 </body>
 </html>
