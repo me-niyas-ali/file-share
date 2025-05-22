@@ -2,128 +2,216 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Real-Time File Sharing</title>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .container { max-width: 600px; margin: auto; }
-    button { padding: 10px; margin: 5px; cursor: pointer; }
-    #filePreview { margin-top: 10px; }
-    #progressBar { width: 100%; height: 20px; background: #eee; }
-    #progress { height: 100%; width: 0%; background: green; }
-    #receivedFiles { margin-top: 20px; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      background: #f7f9fb;
+      color: #333;
+    }
+    h1 { text-align: center; }
+    .section {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    button {
+      padding: 0.5rem 1rem;
+      margin-right: 10px;
+      background: #007bff;
+      border: none;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    input[type="text"], input[type="file"] {
+      padding: 0.4rem;
+      margin-top: 0.5rem;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    .file-preview {
+      margin-top: 1rem;
+    }
+    .progress-bar {
+      height: 10px;
+      background: #e0e0e0;
+      border-radius: 5px;
+      margin-top: 5px;
+      overflow: hidden;
+    }
+    .progress {
+      height: 100%;
+      width: 0%;
+      background: #28a745;
+    }
+    img {
+      max-height: 100px;
+      margin-top: 10px;
+    }
+    .received-file {
+      margin: 5px 0;
+      padding: 5px;
+      background: #f1f1f1;
+      border-left: 4px solid #007bff;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Real-Time File Sharing</h2>
-    <button onclick="createRoom()">Create Room</button>
-    <button onclick="joinRoom()">Join Room</button>
-    <p>Room ID: <span id="roomId">-</span></p>
-    <p>Total Devices Connected: <span id="deviceCount">0</span></p>
 
-    <input type="file" id="fileInput" onchange="previewFile()" />
-    <div id="filePreview"></div>
-    <button onclick="sendFile()">Send</button>
-    <div id="progressBar"><div id="progress"></div></div>
+<h1>Real-Time File Sharing</h1>
 
-    <div id="receivedFiles">
-      <h3>Received Files</h3>
-      <ul id="fileList"></ul>
-    </div>
+<div class="section">
+  <button id="createRoom">Create Room</button>
+  <input type="text" id="roomInput" placeholder="Enter Room Code" maxlength="6" />
+  <button id="joinRoom">Join Room</button>
+  <p>Current Room: <span id="roomDisplay">None</span></p>
+  <p>Connected Devices: <span id="deviceCount">0</span></p>
+</div>
+
+<div class="section">
+  <input type="file" id="fileInput" />
+  <div class="file-preview" id="filePreview"></div>
+  <button id="sendFile" disabled>Send File</button>
+  <div class="progress-bar">
+    <div class="progress" id="progressBar"></div>
   </div>
+</div>
 
-<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<div class="section">
+  <h3>Received Files:</h3>
+  <div id="receivedFiles"></div>
+</div>
+
 <script>
-    const socket = io('https://file-share-oiww.onrender.com'); // ✅ use your actual render URL
-    let currentRoom = null;
-    let selectedFile = null;
+  const socket = io('https://file-share-oiww.onrender.com');
+  let room = null;
+  let selectedFile = null;
 
-    function createRoom() {
-      const roomId = Math.floor(100000 + Math.random() * 900000).toString();
-      currentRoom = roomId;
-      document.getElementById('roomId').textContent = roomId;
-      socket.emit('create-room', roomId);
+  const createRoomBtn = document.getElementById('createRoom');
+  const joinRoomBtn = document.getElementById('joinRoom');
+  const roomInput = document.getElementById('roomInput');
+  const roomDisplay = document.getElementById('roomDisplay');
+  const deviceCount = document.getElementById('deviceCount');
+  const fileInput = document.getElementById('fileInput');
+  const filePreview = document.getElementById('filePreview');
+  const sendFileBtn = document.getElementById('sendFile');
+  const progressBar = document.getElementById('progressBar');
+  const receivedFiles = document.getElementById('receivedFiles');
+
+  function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  function generateRoomId() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  createRoomBtn.onclick = () => {
+    room = generateRoomId();
+    socket.emit('create-room', room);
+    roomDisplay.textContent = room;
+  };
+
+  joinRoomBtn.onclick = () => {
+    const input = roomInput.value.trim();
+    if (input.length === 6) {
+      room = input;
+      socket.emit('join-room', room);
+      roomDisplay.textContent = room;
+    }
+  };
+
+  socket.on('update-count', (count) => {
+    deviceCount.textContent = count;
+  });
+
+  fileInput.onchange = () => {
+    selectedFile = fileInput.files[0];
+    if (!selectedFile) return;
+    sendFileBtn.disabled = false;
+    const preview = document.createElement('div');
+    preview.innerHTML = `
+      <strong>${selectedFile.name}</strong><br>
+      ${formatBytes(selectedFile.size)}
+    `;
+    if (selectedFile.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(selectedFile);
+      preview.appendChild(img);
+    }
+    filePreview.innerHTML = '';
+    filePreview.appendChild(preview);
+  };
+
+  sendFileBtn.onclick = () => {
+    if (!room || !selectedFile) return;
+
+    const chunkSize = 64 * 1024; // 64KB
+    const reader = new FileReader();
+    let offset = 0;
+
+    function sendNextChunk() {
+      const slice = selectedFile.slice(offset, offset + chunkSize);
+      reader.readAsArrayBuffer(slice);
     }
 
-    function joinRoom() {
-      const roomId = prompt('Enter Room ID:');
-      if (roomId) {
-        currentRoom = roomId;
-        document.getElementById('roomId').textContent = roomId;
-        socket.emit('join-room', roomId);
+    reader.onload = (e) => {
+      const isLast = offset + chunkSize >= selectedFile.size;
+      socket.emit('file-chunk', {
+        room: room,
+        name: selectedFile.name,
+        size: selectedFile.size,
+        type: selectedFile.type,
+        data: Array.from(new Uint8Array(e.target.result)),
+        isLast: isLast
+      });
+
+      offset += chunkSize;
+      const percent = Math.min((offset / selectedFile.size) * 100, 100);
+      progressBar.style.width = percent + '%';
+
+      if (!isLast) {
+        sendNextChunk();
+      } else {
+        selectedFile = null;
+        sendFileBtn.disabled = true;
+        fileInput.value = '';
       }
-    }
+    };
 
-    socket.on('update-count', count => {
-      document.getElementById('deviceCount').textContent = count;
-    });
+    sendNextChunk();
+  };
 
-    function previewFile() {
-      const file = document.getElementById('fileInput').files[0];
-      selectedFile = file;
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const preview = document.getElementById('filePreview');
-          preview.innerHTML = `<p><strong>${file.name}</strong> (${(file.size / 1024).toFixed(2)} KB)</p>`;
-          if (file.type.startsWith('image/')) {
-            preview.innerHTML += `<img src="${reader.result}" alt="preview" width="100" />`;
-          }
-        };
-        reader.readAsDataURL(file);
-      }
-    }
+  socket.on('receive-file', (data) => {
+    const byteArray = new Uint8Array(data.data);
+    const blob = new Blob([byteArray], { type: data.type });
+    const url = URL.createObjectURL(blob);
 
-    function sendFile() {
-      if (!selectedFile || !currentRoom) return alert('Select a file and join a room first.');
+    const div = document.createElement('div');
+    div.className = 'received-file';
 
-      const reader = new FileReader();
-      reader.onload = e => {
-        const arrayBuffer = e.target.result;
-        const chunkSize = 64 * 1024;
-        let offset = 0;
-        let progress = document.getElementById('progress');
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = data.name;
+    link.textContent = `${data.name} (${formatBytes(data.size)})`;
+    div.appendChild(link);
 
-        function sendChunk() {
-          const chunk = arrayBuffer.slice(offset, offset + chunkSize);
-          socket.emit('file-chunk', {
-            room: currentRoom,
-            name: selectedFile.name,
-            size: selectedFile.size,
-            type: selectedFile.type,
-            data: chunk,
-            isLast: offset + chunkSize >= arrayBuffer.byteLength
-          });
-          offset += chunkSize;
-          progress.style.width = `${(offset / arrayBuffer.byteLength) * 100}%`;
+    receivedFiles.appendChild(div);
+  });
+</script>
 
-          if (offset < arrayBuffer.byteLength) {
-            setTimeout(sendChunk, 10);
-          }
-        }
-
-        sendChunk();
-      };
-      reader.readAsArrayBuffer(selectedFile);
-    }
-
-    let receivedBuffers = {};
-
-    socket.on('receive-file', ({ name, size, data, type, isLast, senderId }) => {
-      if (!receivedBuffers[senderId]) receivedBuffers[senderId] = [];
-      receivedBuffers[senderId].push(data);
-
-      if (isLast) {
-        const blob = new Blob(receivedBuffers[senderId]);
-        const url = URL.createObjectURL(blob);
-        const fileList = document.getElementById('fileList');
-        const item = document.createElement('li');
-        item.innerHTML = `<a href="${url}" download="${name}">${name}</a> (${(size / 1024).toFixed(2)} KB)`;
-        fileList.appendChild(item);
-        delete receivedBuffers[senderId];
-      }
-    });
-  </script>
 </body>
 </html>
