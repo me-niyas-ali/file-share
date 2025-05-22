@@ -1,43 +1,61 @@
-// server.js
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
-
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+const http = require('http').createServer(app);
+const io = require('socket.io')(http, {
+  cors: {
+    origin: '*',
+  }
+});
 
 const PORT = process.env.PORT || 3000;
-const roomConnections = {}; // Store connections per room
 
-app.use(express.static(path.join(__dirname, 'public'))); // Serve static frontend
+app.use(express.static('public'));
+
+const rooms = {};
 
 io.on('connection', (socket) => {
-  let joinedRoom = null;
+  let currentRoom = null;
 
-  socket.on('join-room', (roomId) => {
+  socket.on('create-room', (roomId) => {
+    currentRoom = roomId;
+    if (!rooms[roomId]) rooms[roomId] = new Set();
+    rooms[roomId].add(socket.id);
     socket.join(roomId);
-    joinedRoom = roomId;
-
-    if (!roomConnections[roomId]) roomConnections[roomId] = new Set();
-    roomConnections[roomId].add(socket.id);
-
-    io.to(roomId).emit('connected-count', roomConnections[roomId].size);
+    io.to(roomId).emit('update-count', rooms[roomId].size);
   });
 
-  socket.on('send-file', (data) => {
-    const { name, size, data: fileData, room } = data;
-    socket.to(room).emit('receive-file', { name, size, data: fileData });
+  socket.on('join-room', (roomId) => {
+    if (!rooms[roomId]) rooms[roomId] = new Set();
+    currentRoom = roomId;
+    rooms[roomId].add(socket.id);
+    socket.join(roomId);
+    io.to(roomId).emit('update-count', rooms[roomId].size);
+  });
+
+  socket.on('file-chunk', (data) => {
+    if (data.room && rooms[data.room]) {
+      socket.to(data.room).emit('receive-file', {
+        name: data.name,
+        size: data.size,
+        data: data.data,
+        type: data.type,
+        isLast: data.isLast,
+        senderId: socket.id
+      });
+    }
   });
 
   socket.on('disconnect', () => {
-    if (joinedRoom && roomConnections[joinedRoom]) {
-      roomConnections[joinedRoom].delete(socket.id);
-      io.to(joinedRoom).emit('connected-count', roomConnections[joinedRoom].size);
-      if (roomConnections[joinedRoom].size === 0) delete roomConnections[joinedRoom];
+    if (currentRoom && rooms[currentRoom]) {
+      rooms[currentRoom].delete(socket.id);
+      io.to(currentRoom).emit('update-count', rooms[currentRoom].size);
+      if (rooms[currentRoom].size === 0) {
+        delete rooms[currentRoom];
+      }
     }
   });
 });
 
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+http.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+});
