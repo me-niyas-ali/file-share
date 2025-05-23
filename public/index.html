@@ -196,7 +196,19 @@
     offset += chunkSize;
     document.getElementById("progressBar").style.width = `${(offset / file.size) * 100}%`;
 
-    if (!done) readSlice();
+    if (!done) {
+     readSlice();
+    } else {
+     const progressBar = document.getElementById("progressBar");
+     progressBar.style.display = "none";
+
+     const msg = document.createElement("p");
+     msg.textContent = "File Sent";
+     msg.style.color = "green";
+     document.querySelector("#fileCardContainer .card").appendChild(msg);
+
+     setTimeout(() => msg.remove(), 5000);
+    }
    };
 
    function readSlice() {
@@ -250,7 +262,15 @@
     link.textContent = `⬇️ Download (${formatBytes(receivedBuffers[name].size)})`;
 
     const card = bar.closest(".card");
+    bar.style.display = "none";
+
+    const msg = document.createElement("p");
+    msg.textContent = "File Received";
+    msg.style.color = "blue";
+    card.appendChild(msg);
     card.appendChild(link);
+
+    setTimeout(() => msg.remove(), 5000);
 
     delete receivedBuffers[name];
     delete receivingCards[name];
