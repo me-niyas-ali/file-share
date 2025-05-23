@@ -1,217 +1,135 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Real-Time File Sharing</title>
-  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <meta charset="UTF-8">
+  <title>LAN File Share</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 2rem;
-      background: #f7f9fb;
-      color: #333;
-    }
-    h1 { text-align: center; }
-    .section {
-      margin-bottom: 1.5rem;
-      padding: 1rem;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    button {
-      padding: 0.5rem 1rem;
-      margin-right: 10px;
-      background: #007bff;
-      border: none;
-      color: white;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-    input[type="text"], input[type="file"] {
-      padding: 0.4rem;
-      margin-top: 0.5rem;
-      display: block;
-      margin-bottom: 0.5rem;
-    }
-    .file-preview {
-      margin-top: 1rem;
-    }
-    .progress-bar {
-      height: 10px;
-      background: #e0e0e0;
-      border-radius: 5px;
-      margin-top: 5px;
-      overflow: hidden;
-    }
-    .progress {
-      height: 100%;
-      width: 0%;
-      background: #28a745;
-    }
-    img {
-      max-height: 100px;
-      margin-top: 10px;
-    }
-    .received-file {
-      margin: 5px 0;
-      padding: 5px;
-      background: #f1f1f1;
-      border-left: 4px solid #007bff;
-    }
+    body { font-family: sans-serif; text-align: center; margin: 30px; }
+    #room, #join, #fileSection, #sendSection, #receiveSection { margin: 20px auto; width: 80%; max-width: 600px; }
+    input[type="text"] { padding: 10px; width: 200px; }
+    button { padding: 10px 20px; margin: 5px; }
+    .file-info, .received-file { margin: 10px 0; text-align: left; }
+    .progress { height: 10px; background: #ddd; margin-top: 5px; border-radius: 5px; overflow: hidden; }
+    .bar { height: 100%; width: 0; background: green; }
+    img.thumbnail { max-height: 100px; display: block; margin: 10px auto; }
   </style>
 </head>
 <body>
+  <h1>LAN File Sharing</h1>
 
-<h1>Real-Time File Sharing</h1>
-
-<div class="section">
-  <button id="createRoom">Create Room</button>
-  <input type="text" id="roomInput" placeholder="Enter Room Code" maxlength="6" />
-  <button id="joinRoom">Join Room</button>
-  <p>Current Room: <span id="roomDisplay">None</span></p>
-  <p>Connected Devices: <span id="deviceCount">0</span></p>
-</div>
-
-<div class="section">
-  <input type="file" id="fileInput" />
-  <div class="file-preview" id="filePreview"></div>
-  <button id="sendFile" disabled>Send File</button>
-  <div class="progress-bar">
-    <div class="progress" id="progressBar"></div>
+  <div id="room">
+    <button onclick="createRoom()">Create Room</button>
+    <div id="roomCode"></div>
+    <div id="connectedCount">Connected: 0</div>
   </div>
-</div>
 
-<div class="section">
-  <h3>Received Files:</h3>
-  <div id="receivedFiles"></div>
-</div>
+  <div id="join">
+    <input type="text" id="joinCode" maxlength="6" placeholder="Enter Room Code" />
+    <button onclick="joinRoom()">Join</button>
+  </div>
 
-<script>
-  const socket = io('https://file-share-oiww.onrender.com');
-  let room = null;
-  let selectedFile = null;
+  <div id="fileSection" style="display:none;">
+    <input type="file" id="fileInput" />
+    <div class="file-info" id="fileInfo"></div>
+  </div>
 
-  const createRoomBtn = document.getElementById('createRoom');
-  const joinRoomBtn = document.getElementById('joinRoom');
-  const roomInput = document.getElementById('roomInput');
-  const roomDisplay = document.getElementById('roomDisplay');
-  const deviceCount = document.getElementById('deviceCount');
-  const fileInput = document.getElementById('fileInput');
-  const filePreview = document.getElementById('filePreview');
-  const sendFileBtn = document.getElementById('sendFile');
-  const progressBar = document.getElementById('progressBar');
-  const receivedFiles = document.getElementById('receivedFiles');
+  <div id="sendSection" style="display:none;">
+    <button onclick="sendFile()">Send File</button>
+    <div class="progress"><div class="bar" id="uploadBar"></div></div>
+  </div>
 
-  function formatBytes(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }
+  <div id="receiveSection" style="display:none;">
+    <h3>Received Files</h3>
+    <div id="receivedFiles"></div>
+  </div>
 
-  function generateRoomId() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  }
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    let room = null;
+    let selectedFile = null;
 
-  createRoomBtn.onclick = () => {
-    room = generateRoomId();
-    socket.emit('create-room', room);
-    roomDisplay.textContent = room;
-  };
-
-  joinRoomBtn.onclick = () => {
-    const input = roomInput.value.trim();
-    if (input.length === 6) {
-      room = input;
-      socket.emit('join-room', room);
-      roomDisplay.textContent = room;
-    }
-  };
-
-  socket.on('update-count', (count) => {
-    deviceCount.textContent = count;
-  });
-
-  fileInput.onchange = () => {
-    selectedFile = fileInput.files[0];
-    if (!selectedFile) return;
-    sendFileBtn.disabled = false;
-    const preview = document.createElement('div');
-    preview.innerHTML = `
-      <strong>${selectedFile.name}</strong><br>
-      ${formatBytes(selectedFile.size)}
-    `;
-    if (selectedFile.type.startsWith('image/')) {
-      const img = document.createElement('img');
-      img.src = URL.createObjectURL(selectedFile);
-      preview.appendChild(img);
-    }
-    filePreview.innerHTML = '';
-    filePreview.appendChild(preview);
-  };
-
-  sendFileBtn.onclick = () => {
-    if (!room || !selectedFile) return;
-
-    const chunkSize = 64 * 1024; // 64KB
-    const reader = new FileReader();
-    let offset = 0;
-
-    function sendNextChunk() {
-      const slice = selectedFile.slice(offset, offset + chunkSize);
-      reader.readAsArrayBuffer(slice);
+    function createRoom() {
+      room = Math.floor(100000 + Math.random() * 900000).toString();
+      document.getElementById("roomCode").innerText = "Room Code: " + room;
+      socket.emit("join-room", room);
+      document.getElementById("fileSection").style.display = "block";
+      document.getElementById("sendSection").style.display = "block";
+      document.getElementById("receiveSection").style.display = "block";
     }
 
-    reader.onload = (e) => {
-      const isLast = offset + chunkSize >= selectedFile.size;
-      socket.emit('file-chunk', {
-        room: room,
-        name: selectedFile.name,
-        size: selectedFile.size,
-        type: selectedFile.type,
-        data: Array.from(new Uint8Array(e.target.result)),
-        isLast: isLast
-      });
-
-      offset += chunkSize;
-      const percent = Math.min((offset / selectedFile.size) * 100, 100);
-      progressBar.style.width = percent + '%';
-
-      if (!isLast) {
-        sendNextChunk();
-      } else {
-        selectedFile = null;
-        sendFileBtn.disabled = true;
-        fileInput.value = '';
+    function joinRoom() {
+      const code = document.getElementById("joinCode").value;
+      if (code.length === 6) {
+        room = code;
+        socket.emit("join-room", room);
+        document.getElementById("fileSection").style.display = "block";
+        document.getElementById("sendSection").style.display = "block";
+        document.getElementById("receiveSection").style.display = "block";
       }
-    };
+    }
 
-    sendNextChunk();
-  };
+    socket.on("update-count", count => {
+      document.getElementById("connectedCount").innerText = "Connected: " + count;
+    });
 
-  socket.on('receive-file', (data) => {
-    const byteArray = new Uint8Array(data.data);
-    const blob = new Blob([byteArray], { type: data.type });
-    const url = URL.createObjectURL(blob);
+    document.getElementById("fileInput").addEventListener("change", function(e) {
+      selectedFile = e.target.files[0];
+      const infoDiv = document.getElementById("fileInfo");
+      infoDiv.innerHTML = `<strong>Name:</strong> ${selectedFile.name}<br>
+        <strong>Size:</strong> ${(selectedFile.size / 1024).toFixed(2)} KB`;
 
-    const div = document.createElement('div');
-    div.className = 'received-file';
+      if (selectedFile.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = document.createElement("img");
+          img.src = e.target.result;
+          img.className = "thumbnail";
+          infoDiv.appendChild(img);
+        };
+        reader.readAsDataURL(selectedFile);
+      }
+    });
 
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = data.name;
-    link.textContent = `${data.name} (${formatBytes(data.size)})`;
-    div.appendChild(link);
+    function sendFile() {
+      if (!selectedFile || !room) return;
 
-    receivedFiles.appendChild(div);
-  });
-</script>
+      const chunkSize = 64 * 1024;
+      const reader = new FileReader();
+      let offset = 0;
+      const total = selectedFile.size;
 
+      function readChunk() {
+        const slice = selectedFile.slice(offset, offset + chunkSize);
+        reader.readAsArrayBuffer(slice);
+      }
+
+      reader.onload = e => {
+        socket.emit("file-chunk", {
+          room,
+          name: selectedFile.name,
+          size: total,
+          data: e.target.result,
+          done: offset + chunkSize >= total
+        });
+
+        offset += chunkSize;
+        const percent = Math.min(100, (offset / total) * 100);
+        document.getElementById("uploadBar").style.width = percent + "%";
+
+        if (offset < total) readChunk();
+      };
+
+      socket.emit("start-file", { room, name: selectedFile.name, size: selectedFile.size });
+      readChunk();
+    }
+
+    socket.on("file-received", ({ name, size }) => {
+      const div = document.createElement("div");
+      div.className = "received-file";
+      div.innerHTML = `<strong>${name}</strong> (${(size / 1024).toFixed(2)} KB)`;
+      document.getElementById("receivedFiles").appendChild(div);
+    });
+  </script>
 </body>
 </html>
