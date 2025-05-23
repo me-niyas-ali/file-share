@@ -1,25 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LAN File Sharing</title>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 20px; }
-    input[type="file"] { margin: 10px; }
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+
+    h2, h3 {
+      text-align: center;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: auto;
+      padding: 10px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    input[type="text"], input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      margin-bottom: 20px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
 
     .card {
-      display: inline-block;
       border: 1px solid #ccc;
       border-radius: 8px;
       padding: 15px;
-      width: 250px;
-      margin-top: 20px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-      text-align: left;
-    }
-
-    .card p {
-      margin: 5px 0;
+      margin: 10px 0;
+      background: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
 
     .progress {
@@ -35,36 +76,55 @@
       height: 100%;
       width: 0%;
       background: #4caf50;
+      transition: width 0.3s;
     }
 
     a.download-link {
       display: block;
       margin-top: 10px;
-      text-decoration: none;
       color: #007bff;
+      word-break: break-all;
+    }
+
+    #roomDisplay, #connectedDisplay {
+      text-align: center;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
+    @media (max-width: 400px) {
+      .container {
+        padding: 10px;
+      }
+
+      h2, h3 {
+        font-size: 18px;
+      }
+
+      button, input[type="text"], input[type="file"] {
+        font-size: 14px;
+      }
     }
   </style>
 </head>
 <body>
 
-  <h2>LAN File Sharing</h2>
+  <div class="container">
+    <h2>LAN File Sharing</h2>
 
-  <div>
-    <input type="text" id="roomInput" placeholder="Enter Room Code (6-digit)" maxlength="6">
+    <input type="text" id="roomInput" placeholder="Enter Room Code (6-digit)" maxlength="6" />
     <button onclick="joinRoom()">Join Room</button>
-  </div>
 
-  <div id="roomDisplay" style="margin: 20px; font-weight: bold;"></div>
-  <div id="connectedDisplay"></div>
+    <div id="roomDisplay"></div>
+    <div id="connectedDisplay"></div>
 
-  <div>
-    <input type="file" id="fileInput">
+    <input type="file" id="fileInput" />
     <div id="fileCardContainer"></div>
     <button onclick="sendFile()">Send</button>
-  </div>
 
-  <div id="receivedFiles">
-    <h3>Received Files</h3>
+    <div id="receivedFiles">
+      <h3>Received Files</h3>
+    </div>
   </div>
 
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
@@ -91,8 +151,7 @@
     document.getElementById('fileInput').addEventListener('change', e => {
       file = e.target.files[0];
       if (file) {
-        const cardContainer = document.getElementById("fileCardContainer");
-        cardContainer.innerHTML = `
+        document.getElementById("fileCardContainer").innerHTML = `
           <div class="card">
             <p><strong>${file.name}</strong></p>
             <p>${(file.size / 1024).toFixed(2)} KB</p>
@@ -124,9 +183,7 @@
         offset += chunkSize;
         document.getElementById("progressBar").style.width = `${(offset / file.size) * 100}%`;
 
-        if (!done) {
-          readSlice();
-        }
+        if (!done) readSlice();
       };
 
       function readSlice() {
@@ -143,15 +200,16 @@
     socket.on("start-file", ({ name, size }) => {
       receivedBuffers[name] = { size, buffers: [], receivedSize: 0 };
 
+      const id = name.replace(/\W/g, '');
       const card = document.createElement("div");
       card.className = "card";
       card.innerHTML = `
         <p><strong>${name}</strong></p>
         <p>${(size / 1024).toFixed(2)} KB</p>
-        <div class="progress"><div class="bar" id="recv-${name.replace(/\W/g, '')}"></div></div>
+        <div class="progress"><div class="bar" id="recv-${id}"></div></div>
       `;
       document.getElementById("receivedFiles").appendChild(card);
-      receivingCards[name] = `recv-${name.replace(/\W/g, '')}`;
+      receivingCards[name] = `recv-${id}`;
     });
 
     socket.on("file-chunk", ({ name, data, done }) => {
