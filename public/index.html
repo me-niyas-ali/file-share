@@ -133,6 +133,16 @@
   let room = null;
   let file = null;
 
+  function formatBytes(bytes) {
+   const sizes = ['B',
+    'KB',
+    'MB',
+    'GB'];
+   if (bytes === 0) return '0 B';
+   const i = Math.floor(Math.log(bytes) / Math.log(1024));
+   return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
   function joinRoom() {
    const code = document.getElementById('roomInput').value.trim();
    if (code.length === 6) {
@@ -154,7 +164,7 @@
     document.getElementById("fileCardContainer").innerHTML = `
     <div class="card">
     <p><strong>${file.name}</strong></p>
-    <p>${(file.size / 1024).toFixed(2)} KB</p>
+    <p>${formatBytes(file.size)}</p>
     <div class="progress"><div id="progressBar" class="bar"></div></div>
     </div>
     `;
@@ -211,7 +221,7 @@
    card.className = "card";
    card.innerHTML = `
    <p><strong>${name}</strong></p>
-   <p>${(size / 1024).toFixed(2)} KB</p>
+   <p>${formatBytes(size)}</p>
    <div class="progress"><div class="bar" id="recv-${id}"></div></div>
    `;
    document.getElementById("receivedFiles").appendChild(card);
@@ -236,7 +246,7 @@
     link.href = URL.createObjectURL(blob);
     link.download = name;
     link.className = "download-link";
-    link.textContent = `⬇️ Download ${name} (${(receivedBuffers[name].size / 1024).toFixed(2)} KB)`;
+    link.textContent = `⬇️ Download (${formatBytes(receivedBuffers[name].size)})`;
 
     const card = bar.closest(".card");
     card.appendChild(link);
