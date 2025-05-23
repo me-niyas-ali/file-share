@@ -209,13 +209,17 @@
    const id = name.replace(/\W/g, '');
    const card = document.createElement("div");
    card.className = "card";
+   card.id = `card-${id}`;
    card.innerHTML = `
    <p><strong>${name}</strong></p>
-   <p>${(size / 1024).toFixed(2)} KB</p>
-   <div class="progress"><div class="bar" id="recv-${id}"></div></div>
+   <p>${formatBytes(size)}</p>
+   <div class="progress" style="position:relative;">
+   <div class="bar" id="recv-${id}"></div>
+   <span id="recv-text-${id}" style="position:absolute; left:50%; transform:translateX(-50%); font-size:12px;">0 / ${formatBytes(size)}</span>
+   </div>
    `;
    document.getElementById("receivedFiles").appendChild(card);
-   receivingCards[name] = `recv-${id}`;
+   receivingCards[name] = id;
   });
 
   socket.on("file-chunk", ({
