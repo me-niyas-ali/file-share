@@ -196,13 +196,7 @@
     offset += chunkSize;
     document.getElementById("progressBar").style.width = `${(offset / file.size) * 100}%`;
 
-    if (!done) {
-     readSlice();
-    } else {
-     // File sent completed
-     const container = document.getElementById("fileCardContainer");
-     container.innerHTML += `<p style="color: green; font-weight: bold; margin-top: 5px;">File sent</p>`;
-    }
+    if (!done) readSlice();
    };
 
    function readSlice() {
@@ -257,13 +251,6 @@
 
     const card = bar.closest(".card");
     card.appendChild(link);
-
-    const status = document.createElement("p");
-    status.textContent = "File received";
-    status.style.color = "green";
-    status.style.fontWeight = "bold";
-    status.style.marginTop = "5px";
-    card.appendChild(status);
 
     delete receivedBuffers[name];
     delete receivingCards[name];
