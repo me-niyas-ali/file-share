@@ -144,16 +144,6 @@
    }
   }
 
-  function formatBytes(bytes) {
-   const sizes = ['B',
-    'KB',
-    'MB',
-    'GB'];
-   if (bytes === 0) return '0 B';
-   const i = Math.floor(Math.log(bytes) / Math.log(1024));
-   return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
-  }
-
   socket.on('update-count', (count) => {
    document.getElementById('connectedDisplay').innerText = `Connected: ${count}`;
   });
@@ -163,9 +153,9 @@
    if (file) {
     document.getElementById("fileCardContainer").innerHTML = `
     <div class="card">
-    <p><strong>${file.name}</strong></p><p>${formatBytes(file.size)}</p>
+    <p><strong>${file.name}</strong></p>
+    <p>${(file.size / 1024).toFixed(2)} KB</p>
     <div class="progress"><div id="progressBar" class="bar"></div></div>
-    <small id="progressText">0 / ${formatBytes(file.size)}</small>
     </div>
     `;
    }
@@ -193,9 +183,7 @@
     });
 
     offset += chunkSize;
-    const percent = (offset / file.size) * 100;
-    document.getElementById("progressBar").style.width = `${percent}%`;
-    document.getElementById("progressText").textContent = `${formatBytes(offset)} / ${formatBytes(file.size)}`;
+    document.getElementById("progressBar").style.width = `${(offset / file.size) * 100}%`;
 
     if (!done) readSlice();
    };
@@ -223,9 +211,8 @@
    card.className = "card";
    card.innerHTML = `
    <p><strong>${name}</strong></p>
-   <p>${formatBytes(size)}</p>
+   <p>${(size / 1024).toFixed(2)} KB</p>
    <div class="progress"><div class="bar" id="recv-${id}"></div></div>
-   <small id="recvText-${id}">0 / ${formatBytes(size)}</small>
    `;
    document.getElementById("receivedFiles").appendChild(card);
    receivingCards[name] = `recv-${id}`;
@@ -239,11 +226,6 @@
    receivedBuffers[name].buffers.push(data);
    receivedBuffers[name].receivedSize += data.byteLength;
 
-   const receivedText = document.getElementById(`recvText-${id}`);
-   if (receivedText) {
-    receivedText.textContent = `${formatBytes(receivedBuffers[name].receivedSize)} / ${formatBytes(receivedBuffers[name].size)}`;
-   }
-
    const bar = document.getElementById(receivingCards[name]);
    const percentage = (receivedBuffers[name].receivedSize / receivedBuffers[name].size) * 100;
    bar.style.width = `${percentage}%`;
@@ -254,7 +236,7 @@
     link.href = URL.createObjectURL(blob);
     link.download = name;
     link.className = "download-link";
-    link.textContent = `⬇️ Download - (${formatBytes(receivedBuffers[name].size)})`;
+    link.textContent = `⬇️ Download ${name} (${(receivedBuffers[name].size / 1024).toFixed(2)} KB)`;
 
     const card = bar.closest(".card");
     card.appendChild(link);
