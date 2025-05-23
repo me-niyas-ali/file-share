@@ -1,11 +1,13 @@
 const express = require("express");
 const http = require("http");
-const socketIo = require("socket.io");
+const socketio = require("socket.io");
 const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketio(server);
+
+app.use(express.static(path.join(__dirname, "public")));
 
 const rooms = {};
 
@@ -18,7 +20,7 @@ io.on("connection", (socket) => {
     io.to(room).emit("update-count", rooms[room].length);
 
     socket.on("start-file", (data) => {
-      socket.to(room).emit("file-received", { name: data.name, size: data.size });
+      socket.to(room).emit("start-file", data);
     });
 
     socket.on("file-chunk", (data) => {
@@ -26,17 +28,15 @@ io.on("connection", (socket) => {
     });
 
     socket.on("disconnect", () => {
-      if (rooms[room]) {
-        rooms[room] = rooms[room].filter(id => id !== socket.id);
-        io.to(room).emit("update-count", rooms[room].length);
+      for (const r in rooms) {
+        rooms[r] = rooms[r].filter(id => id !== socket.id);
+        io.to(r).emit("update-count", rooms[r].length);
       }
     });
   });
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
-
-const port = process.env.PORT || 3000;
-server.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log("Server running on port", PORT);
 });
