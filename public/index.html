@@ -165,6 +165,7 @@
     <div class="card">
     <p><strong>${file.name}</strong></p><p>${formatBytes(file.size)}</p>
     <div class="progress"><div id="progressBar" class="bar"></div></div>
+    <small id="progressText">0 / ${formatBytes(file.size)}</small>
     </div>
     `;
    }
@@ -192,7 +193,9 @@
     });
 
     offset += chunkSize;
-    document.getElementById("progressBar").style.width = `${(offset / file.size) * 100}%`;
+    const percent = (offset / file.size) * 100;
+    document.getElementById("progressBar").style.width = `${percent}%`;
+    document.getElementById("progressText").textContent = `${formatBytes(offset)} / ${formatBytes(file.size)}`;
 
     if (!done) readSlice();
    };
@@ -222,6 +225,7 @@
    <p><strong>${name}</strong></p>
    <p>${formatBytes(size)}</p>
    <div class="progress"><div class="bar" id="recv-${id}"></div></div>
+   <small id="recvText-${id}">0 / ${formatBytes(size)}</small>
    `;
    document.getElementById("receivedFiles").appendChild(card);
    receivingCards[name] = `recv-${id}`;
@@ -234,6 +238,11 @@
 
    receivedBuffers[name].buffers.push(data);
    receivedBuffers[name].receivedSize += data.byteLength;
+
+   const receivedText = document.getElementById(`recvText-${id}`);
+   if (receivedText) {
+    receivedText.textContent = `${formatBytes(receivedBuffers[name].receivedSize)} / ${formatBytes(receivedBuffers[name].size)}`;
+   }
 
    const bar = document.getElementById(receivingCards[name]);
    const percentage = (receivedBuffers[name].receivedSize / receivedBuffers[name].size) * 100;
