@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>LAN File Share</title>
+  <title>LAN File Sharing</title>
   <style>
     body { font-family: sans-serif; text-align: center; margin: 30px; }
     #room, #join, #fileSection, #sendSection, #receiveSection { margin: 20px auto; width: 80%; max-width: 600px; }
@@ -48,14 +48,13 @@
     const socket = io();
     let room = null;
     let selectedFile = null;
+    const receivedFiles = {};
 
     function createRoom() {
       room = Math.floor(100000 + Math.random() * 900000).toString();
       document.getElementById("roomCode").innerText = "Room Code: " + room;
       socket.emit("join-room", room);
-      document.getElementById("fileSection").style.display = "block";
-      document.getElementById("sendSection").style.display = "block";
-      document.getElementById("receiveSection").style.display = "block";
+      showSharingUI();
     }
 
     function joinRoom() {
@@ -63,10 +62,14 @@
       if (code.length === 6) {
         room = code;
         socket.emit("join-room", room);
-        document.getElementById("fileSection").style.display = "block";
-        document.getElementById("sendSection").style.display = "block";
-        document.getElementById("receiveSection").style.display = "block";
+        showSharingUI();
       }
+    }
+
+    function showSharingUI() {
+      document.getElementById("fileSection").style.display = "block";
+      document.getElementById("sendSection").style.display = "block";
+      document.getElementById("receiveSection").style.display = "block";
     }
 
     socket.on("update-count", count => {
@@ -99,36 +102,56 @@
       let offset = 0;
       const total = selectedFile.size;
 
+      socket.emit("start-file", { room, name: selectedFile.name, size: total });
+
       function readChunk() {
         const slice = selectedFile.slice(offset, offset + chunkSize);
         reader.readAsArrayBuffer(slice);
       }
 
       reader.onload = e => {
+        const done = offset + chunkSize >= total;
         socket.emit("file-chunk", {
           room,
           name: selectedFile.name,
-          size: total,
           data: e.target.result,
-          done: offset + chunkSize >= total
+          done
         });
 
         offset += chunkSize;
         const percent = Math.min(100, (offset / total) * 100);
         document.getElementById("uploadBar").style.width = percent + "%";
 
-        if (offset < total) readChunk();
+        if (!done) readChunk();
       };
 
-      socket.emit("start-file", { room, name: selectedFile.name, size: selectedFile.size });
       readChunk();
     }
 
-    socket.on("file-received", ({ name, size }) => {
-      const div = document.createElement("div");
-      div.className = "received-file";
-      div.innerHTML = `<strong>${name}</strong> (${(size / 1024).toFixed(2)} KB)`;
-      document.getElementById("receivedFiles").appendChild(div);
+    // Receive files
+    socket.on("start-file", ({ name, size }) => {
+      receivedFiles[name] = { name, size, buffers: [] };
+    });
+
+    socket.on("file-chunk", ({ name, data, done }) => {
+      if (!receivedFiles[name]) return;
+      receivedFiles[name].buffers.push(data);
+
+      if (done) {
+        const blob = new Blob(receivedFiles[name].buffers);
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = name;
+        link.textContent = `⬇️ Download ${name} (${(receivedFiles[name].size / 1024).toFixed(2)} KB)`;
+        link.style.display = "block";
+
+        const div = document.createElement("div");
+        div.className = "received-file";
+        div.appendChild(link);
+        document.getElementById("receivedFiles").appendChild(div);
+
+        delete receivedFiles[name];
+      }
     });
   </script>
 </body>
