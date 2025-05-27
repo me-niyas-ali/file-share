@@ -1,41 +1,55 @@
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
+const { Server } = require('socket.io');
+const path = require('path');
+
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
-
-app.use(express.static('public'));
+const io = new Server(server);
 
 const rooms = {};
 
-io.on('connection', (socket) => {
-  let currentRoom = null;
+app.use(express.static(path.join(__dirname, 'public')));
 
-  socket.on('join-room', (room) => {
-    socket.join(room);
-    currentRoom = room;
+io.on('connection', socket => {
+  socket.on('join-room', roomId => {
+    socket.join(roomId);
+    rooms[socket.id] = roomId;
 
-    rooms[room] = rooms[room] || [];
-    rooms[room].push(socket.id);
+    const devices = io.sockets.adapter.rooms.get(roomId)?.size || 0;
+    socket.emit('room-joined', { roomId, devices });
+    io.to(roomId).emit('room-updated', { devices });
+  });
 
-    io.to(room).emit('update-count', rooms[room].length);
+  socket.on('leave-room', roomId => {
+    socket.leave(roomId);
+    delete rooms[socket.id];
+    const devices = io.sockets.adapter.rooms.get(roomId)?.size || 0;
+    io.to(roomId).emit('room-updated', { devices });
+  });
+
+  socket.on('send-file-meta', ({ roomId, metadata }) => {
+    socket.to(roomId).emit('file-meta', metadata);
+  });
+
+  socket.on('send-file-chunk', ({ roomId, transferId, chunk }) => {
+    socket.to(roomId).emit('file-chunk', { transferId, chunk });
+  });
+
+  socket.on("send-cancel-transfer", ({ roomId, transferId }) => {
+    socket.to(roomId).emit("send-cancel-transfer", { transferId });
   });
 
   socket.on('disconnect', () => {
-    if (currentRoom && rooms[currentRoom]) {
-      rooms[currentRoom] = rooms[currentRoom].filter(id => id !== socket.id);
-      io.to(currentRoom).emit('update-count', rooms[currentRoom].length);
+    const roomId = rooms[socket.id];
+    if (roomId) {
+      delete rooms[socket.id];
+      const devices = io.sockets.adapter.rooms.get(roomId)?.size || 0;
+      io.to(roomId).emit('room-updated', { devices });
     }
-  });
-
-  socket.on('start-file', (data) => {
-    socket.to(currentRoom).emit('start-file', data);
-  });
-
-  socket.on('file-chunk', (data) => {
-    socket.to(currentRoom).emit('file-chunk', data);
   });
 });
 
-server.listen(3000, () => console.log('Server running on http://localhost:3000'));
+server.listen(3000, () => {
+  console.log('Server running on http://localhost:3000');
+});
