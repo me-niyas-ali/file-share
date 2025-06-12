@@ -1,9 +1,69 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
  <meta charset="UTF-8" />
  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
  <title>P2P File Sharing</title>
+ <style>
+  body {
+   font-family: system-ui, sans-serif;
+   font-size: 16px;
+   /* Base font size */
+   line-height: 1.6;
+   color: #333;
+  }
+
+  h1 {
+   font-size: 2.25rem;
+   /* ~36px */
+   font-weight: bold;
+   margin-bottom: 0.2em;
+  }
+
+  h2 {
+   font-size: 1.875rem;
+   /* ~30px */
+   font-weight: bold;
+   margin-bottom: 0.2em;
+  }
+
+  h3 {
+   font-size: 1.5rem;
+   /* ~24px */
+   font-weight: bold;
+   margin-bottom: 0.2em;
+  }
+
+  h4 {
+   font-size: 1.25rem;
+   /* ~20px */
+   font-weight: bold;
+   margin-bottom: 0.2em;
+  }
+
+  p {
+   font-size: 1rem;
+   /* 16px */
+   margin-bottom: 1em;
+  }
+
+  span {
+   font-size: 1rem;
+   /* Inherits from base */
+  }
+
+  small {
+   font-size: 0.875rem;
+   /* ~14px */
+  }
+
+  button, input, select, textarea {
+   font-size: 1rem;
+   /* Match base text size */
+  }
+ </style>
+
  <style>
   * {
    user-select: none;
@@ -17,7 +77,7 @@
    padding: 0;
    transition: ease 0.3s;
    box-sizing: border-box;
-   font-weight: 350;
+   font-weight: 400;
   }
 
   body, html {
@@ -43,7 +103,8 @@
    display: flex;
    gap: 5px;
    background: #e6e6e6;
-   padding: 8px;
+   padding: 1px 8px;
+   margin-top: 8px;;
    border: 1px solid #ccc;
    border-radius: 5px;
    box-sizing: border-box;
@@ -53,8 +114,13 @@
    width: 50%;
   }
 
-  #roomid {
-   letter-spacing: 5px;
+  #roomId {
+   letter-spacing: 0.5em;
+   font-weight: bold;
+  }
+
+  #connectedDevice {
+   font-weight: bold;
   }
 
   .connected-device {
@@ -78,7 +144,6 @@
   input {
    padding: 8px;
    margin-top: 10px;
-   font-size: 16px;
    border-radius: 5px;
    border: 1px solid #ccc;
   }
@@ -86,7 +151,6 @@
   .button {
    padding: 10px;
    margin-top: 10px;
-   font-size: 16px;
    border-radius: 5px;
    border: 1px solid #ccc;
    background-color: #2196f3;
@@ -99,7 +163,7 @@
   }
 
   .file-display-area {
-   margin-top: 20px;
+   margin-top: 15px;
    display: flex;
    flex-direction: column;
    gap: 15px;
@@ -113,9 +177,33 @@
    position: relative;
   }
 
-  .file-card h4 {
-   margin: 0 0 6px;
+  .file-card-title-wrapper {
+   position: relative;
+   overflow: hidden;
+   white-space: nowrap;
+   width: 100%;
   }
+
+  .file-card-title {
+   display: inline-block;
+   white-space: nowrap;
+   will-change: transform;
+   animation: scroll-title 15s linear infinite;
+   animation-play-state: paused;
+  }
+
+@keyframes scroll-title {
+   0% {
+    transform: translateX(0%);
+   }
+   20% {
+    transform: translateX(0%);
+   }
+   100% {
+    transform: translateX(-100%);
+   }
+  }
+
 
   .progress-container {
    width: 100%;
@@ -123,42 +211,52 @@
    height: 15px;
    border-radius: 5px;
    overflow: hidden;
-   margin: 8px 0;
+   margin: 0px;
   }
 
   .progress-bar {
    height: 100%;
    width: 0%;
    background: #4caf50;
-   transition: width 0.2s;
+   transition: width 1s;
   }
 
   .status-line {
-   font-size: 13px;
    margin-bottom: 8px;
+  }
+
+  .button-container {
+   display: flex;
+   justify-content: space-between;
+   gap: 10px;
+   margin-top: 8px;
+  }
+
+  .button-container .cancel-btn,
+  .button-container .download-btn {
+   flex: 1;
+   text-align: center;
   }
 
   .cancel-btn {
    background: #f44336;
    color: white;
    border: none;
-   padding: 5px 8px;
-   border-radius: 3px;
+   padding: 8px;
+   border-radius: 5px;
    cursor: pointer;
   }
 
   .download-btn {
    background-color: #4caf50;
    color: white;
-   padding: 6px;
    border: none;
-   border-radius: 4px;
-   margin-top: 10px;
-   display: none;
+   padding: 8px;
+   border-radius: 5px;
    cursor: pointer;
+   display: none;
   }
- </style>
- <style>
+
   #toast-container {
    position: fixed;
    bottom: 20px;
@@ -179,8 +277,7 @@
    color: black;
    padding: 6px 8px;
    border-radius: 8px;
-   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-   font-size: 15px;
+   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
    opacity: 0;
    transform: translateX(30px);
    animation: slideIn 0.4s ease forwards, fadeOut 0.2s ease forwards 2s;
@@ -198,13 +295,13 @@
   }
 
   .toast.success {
-   border: 2px solid #28a745;
+   border: 3px solid #22c55e;
   }
   .toast.error {
-   border: 2px solid #dc3545;
+   border: 3px solid #ef4444;
   }
   .toast.info {
-   border: 2px solid #007bff;
+   border: 3px solid #ffaa00;
   }
 
 @keyframes slideIn {
@@ -220,19 +317,40 @@
     transform: translateX(30px);
    }
   }
- </style>
 
+  .status-btn {
+   border-radius: 8px;
+   padding: 0.25em 0.5em;
+   border: 2px solid #ef4444;
+   color: black;
+   background-color: none;
+  }
+
+  .status-btn.connected {
+   border: 2px solid #22c55e;
+  }
+  .status-btn.disconnected {
+   border: 2px solid #ef4444;
+  }
+  .status-btn.connecting {
+   border: 2px solid #ffcc66;
+  }
+  .status-btn.offline {
+   border: 2px solid #ef4444;
+  }
+ </style>
 </head>
 <body>
- <center>
-  <div class="container">
+ <div class="container">
+  <center>
    <h2>P2P File Sharing</h2>
+   <span id="serverstatus" class="status-btn">Connecting...</span>
    <div class="status-container">
     <div class="room-id">
      Room ID : <span id="roomId">----</span>
     </div>
     <div class="connected-device">
-     Connected : <span id="connectedDevice">0</span>
+     Connected Users : <span id="connectedDevice">0</span>
     </div>
    </div>
    <div class="btn-container">
@@ -243,24 +361,33 @@
     <input class="input" type="file" id="fileInput" />
     <button class="button"id="sendBtn">Send</button>
    </div>
-   <!--button class="button" id="testbtn">Test Toast</button-->
-   <div id="sendFilesDisplay" class="file-display-area"></div>
-   <div id="receivedFilesDisplay" class="file-display-area"></div>
-  </div>
-  <div id="toast-container"></div>
- </center>
+  </center>
+  <!--button class="button" id="testbtn">Test Toast</button-->
+  <div id="sendFilesDisplay" class="file-display-area"></div>
+
+  <!--div class="file-card">
+      <span>File Njdidndjudbskisbhsujeneksisnsjidhehsjsisjnehdudjdbdkdisjbesijdbdgeusjdbdjdksjdidjdbhdjdkdidbdjame</span>
+      <div class="status-line">Transfer Status</div>
+      <div class="progress-container">
+       <div class="progress-bar">
+       </div>
+      </div>
+      <div class="button-container">
+     <button class="cancel-btn">Cancel</button>
+     <button class="download-btn">download</button>
+    </div>
+     </div-->
+
+  <div id="receivedFilesDisplay" class="file-display-area"></div>
+ </div>
+ <div id="toast-container"></div>
 
  <script src="/socket.io/socket.io.js"></script>
  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script>
-  const input = document.getElementById('roomIdinput');
-  input.addEventListener('input', () => {
-    if (input.value.length > 4) {
-      input.value = input.value.slice(0, 4);
-    }
-  });
-  
+ <script>
+
   const socket = io('https://file-share-z3yn.onrender.com');
+
   const roomIdInput = document.getElementById("roomIdinput");
   const roomDisplay = document.getElementById("roomId");
   const deviceDisplay = document.getElementById("connectedDevice");
@@ -269,17 +396,31 @@
   const fileInput = document.getElementById("fileInput");
   const sendFilesDisplay = document.getElementById("sendFilesDisplay");
   const receivedFilesDisplay = document.getElementById("receivedFilesDisplay");
+  const statusBtn = document.getElementById("serverstatus");
 
   let roomId = '';
   let joined = false;
-  const CHUNK_SIZE = 64 * 1024;
-
   let sendOffset = 0;
   let sendFile = null;
   let sendFileReader = null;
   let sendingCancelled = false;
   let currentTransferId = null;
 
+  const CHUNK_SIZE = 64 * 1024;
+  const countdownSeconds = 35;
+  let countdownTimer = null;
+  let countdownActive = false;
+  let reconnectAttempts = 0;
+  let currentLabel = "Connecting";
+
+  // Limit input to 4 digits
+  roomIdInput.addEventListener('input', () => {
+   if (roomIdInput.value.length > 4) {
+    roomIdInput.value = roomIdInput.value.slice(0, 4);
+   }
+  });
+
+  // Join or leave room
   joinBtn.onclick = () => {
    if (!joined) {
     roomId = roomIdInput.value.trim();
@@ -291,35 +432,7 @@
    }
   };
 
-  socket.on("disconnect", (reason) => {
-   resetState();
-
-   if (reason === "io server disconnect") {
-    showToast("Disconnected by server", "error", {
-     duration: 99999999, dismissible: true
-    });
-   } else if (reason === "io client disconnect") {
-    showToast("Disconnected from client (tab/browser closed)", "error", {
-     duration: 99999999, dismissible: true
-    });
-   } else {
-    showToast(`Disconnected: ${reason}`, "error", {
-     duration: 99999999, dismissible: true
-    });
-   }
-  });
-
-
-  function formatBytes(bytes) {
-   const sizes = ['Bytes',
-    'KB',
-    'MB',
-    'GB'];
-   if (bytes === 0) return '0 Bytes';
-   const i = Math.floor(Math.log(bytes) / Math.log(1024));
-   return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
-  }
-
+  // Reset state
   function resetState() {
    joined = false;
    roomId = '';
@@ -331,9 +444,109 @@
    showToast("Left room", "error");
    joinBtn.textContent = "Join Room";
    joinBtn.classList.remove("bg-error");
-   roomDisplay.textContent = "- - - -";
+   roomDisplay.textContent = "----";
    deviceDisplay.textContent = "0";
   }
+
+  // Format byte sizes
+  function formatBytes(bytes) {
+   const sizes = ['Bytes',
+    'KB',
+    'MB',
+    'GB'];
+   if (bytes === 0) return '0 Bytes';
+   const i = Math.floor(Math.log(bytes) / Math.log(1024));
+   return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  // Update server status UI
+  function updateStatusButton(state) {
+   statusBtn.classList.remove('connected', 'disconnected', 'connecting', 'offline');
+   if (state === 'connected') {
+    reconnectAttempts = 0;
+    stopCountdown();
+    statusBtn.textContent = 'Connected to Server.';
+    statusBtn.classList.add('connected');
+   } else if (state === 'disconnected') {
+    reconnectAttempts = 0;
+    stopCountdown();
+    statusBtn.textContent = 'Disconnected from Server.';
+    statusBtn.classList.add('disconnected');
+   } else if (state === 'offline') {
+    reconnectAttempts = 0;
+    stopCountdown();
+    statusBtn.textContent = 'You are Offline.';
+    statusBtn.classList.add('offline');
+   } else {
+    statusBtn.classList.add('connecting');
+    startCountdown();
+   }
+  }
+
+  function startCountdown() {
+   if (countdownActive) return;
+   countdownActive = true;
+
+   let secondsLeft = countdownSeconds;
+   statusBtn.textContent = `${currentLabel}... (${secondsLeft}s)` +
+   (reconnectAttempts > 1 ? ` | Attempt #${reconnectAttempts}`: '');
+
+   countdownTimer = setInterval(() => {
+    secondsLeft--;
+    if (secondsLeft > 0) {
+     statusBtn.textContent = `${currentLabel}... (${secondsLeft}s)` +
+     (reconnectAttempts > 1 ? ` | Attempt #${reconnectAttempts}`: '');
+    } else {
+     clearInterval(countdownTimer);
+     statusBtn.textContent = 'Connection Timeout. Reloading...';
+     setTimeout(() => location.reload(), 1000);
+    }
+   },
+    1000);
+  }
+
+  function stopCountdown() {
+   clearInterval(countdownTimer);
+   countdownActive = false;
+  }
+
+  // Network listeners
+  window.addEventListener('online', () => {
+   if (socket.connected) {
+    updateStatusButton('connected');
+   } else {
+    currentLabel = reconnectAttempts > 1 ? 'Reconnecting': 'Connecting';
+    updateStatusButton('connecting');
+   }
+  });
+
+  window.addEventListener('offline', () => {
+   updateStatusButton('offline');
+  });
+
+  // Initial connection state
+  if (!navigator.onLine) {
+   updateStatusButton('offline');
+  } else if (socket.connected) {
+   updateStatusButton('connected');
+  } else {
+   reconnectAttempts = 1;
+   updateStatusButton('connecting');
+  }
+
+  // Socket events
+  socket.on('connect', () => updateStatusButton('connected'));
+  socket.on('disconnect', () => updateStatusButton('disconnected'));
+
+  socket.io.on('reconnect_attempt', () => {
+   if (!navigator.onLine) {
+    updateStatusButton('offline');
+   } else {
+    reconnectAttempts++;
+    currentLabel = 'Reconnecting';
+    updateStatusButton('connecting');
+   }
+  });
 
   socket.on("room-joined", (data) => {
    joined = true;
@@ -349,7 +562,6 @@
    deviceDisplay.textContent = data.devices;
   });
 
-  // 🔔 Toast notifications
   socket.on('user-joined-toast', ({
    devices
   }) => {
@@ -362,53 +574,7 @@
    showToast(`A user left, ${devices} Connected`);
   });
 
-
-  function createFileCard(displayArea, metadata, isSender) {
-   const card = document.createElement('div');
-   card.className = 'file-card';
-   if (metadata.id) card.dataset.transferId = metadata.id;
-
-   const title = document.createElement('h4');
-   title.textContent = metadata.name;
-   card.appendChild(title);
-
-   const status = document.createElement('div');
-   status.className = 'status-line';
-   status.textContent = `0 / ${formatBytes(metadata.size)}`;
-   card.appendChild(status);
-
-   const progressContainer = document.createElement('div');
-   progressContainer.className = 'progress-container';
-
-   const progressBar = document.createElement('div');
-   progressBar.className = 'progress-bar';
-   progressContainer.appendChild(progressBar);
-   card.appendChild(progressContainer);
-
-   const cancelBtn = document.createElement('button');
-   cancelBtn.className = 'cancel-btn';
-   cancelBtn.textContent = 'Cancel';
-   card.appendChild(cancelBtn);
-
-   let downloadBtn = null;
-   if (!isSender) {
-    downloadBtn = document.createElement('button');
-    downloadBtn.className = 'download-btn';
-    downloadBtn.textContent = 'Download File';
-    downloadBtn.style.display = 'none';
-    card.appendChild(downloadBtn);
-   }
-
-   displayArea.appendChild(card);
-   return {
-    card,
-    status,
-    progressBar,
-    cancelBtn,
-    downloadBtn
-   };
-  }
-
+  // File sending
   sendBtn.onclick = () => {
    if (!fileInput.files.length || !joined) {
     showToast("Join a room or select a file first", "info");
@@ -432,20 +598,12 @@
 
    ui.cancelBtn.onclick = () => {
     sendingCancelled = true;
-
-    // Abort any in-progress FileReader read
-    if (sendFileReader && sendFileReader.readyState === FileReader.LOADING) {
-     sendFileReader.abort();
-    }
-
+    sendOffset = sendFile.size; // Stop future reads
     socket.emit("send-cancel-transfer", {
      roomId,
      fileName: sendFile.name,
      transferId: currentTransferId
     });
-
-    sendFileReader = null;
-    sendOffset = sendFile.size;
     sendFilesDisplay.removeChild(ui.card);
     showToast("Transfer cancelled", "error");
     sendBtn.disabled = false;
@@ -455,40 +613,61 @@
     roomId, metadata
    });
 
-   sendFileReader = new FileReader();
-   sendFileReader.onload = (e) => {
-    if (sendingCancelled || !sendFileReader) return;
+   const PIPELINE_DEPTH = 3;
+   let activeReads = 0;
 
-    socket.emit("send-file-chunk", {
-     roomId,
-     chunk: e.target.result,
-     transferId: currentTransferId
-    });
-    sendOffset += CHUNK_SIZE;
-    ui.status.textContent = `${formatBytes(Math.min(sendOffset, sendFile.size))} / ${formatBytes(sendFile.size)}`;
+   function sendChunkPipeline() {
+    if (sendingCancelled || !sendFile || sendOffset >= sendFile.size) return;
 
-    ui.progressBar.style.width = `${(sendOffset / sendFile.size) * 100}%`;
+    while (activeReads < PIPELINE_DEPTH && sendOffset < sendFile.size) {
+     const start = sendOffset;
+     const end = Math.min(sendOffset + CHUNK_SIZE, sendFile.size);
+     const slice = sendFile.slice(start, end);
 
-    if (sendOffset < sendFile.size) sendChunk();
-    else {
-     ui.status.textContent = 'Upload complete';
-     showToast("Upload completed", "success");
-     ui.status.style.color = '#22c55e';
-     sendBtn.disabled = false;
-     ui.cancelBtn.remove();
+     const reader = new FileReader();
+     activeReads++;
+     sendOffset = end;
+
+     reader.onload = (e) => {
+      if (sendingCancelled) return;
+
+      socket.emit("send-file-chunk", {
+       roomId,
+       chunk: e.target.result,
+       transferId: currentTransferId
+      });
+
+      ui.status.textContent = `${formatBytes(Math.min(sendOffset, sendFile.size))} / ${formatBytes(sendFile.size)}`;
+      ui.progressBar.style.width = `${(sendOffset / sendFile.size) * 100}%`;
+
+      activeReads--;
+      if (sendOffset < sendFile.size) {
+       sendChunkPipeline(); // Queue next
+      } else if (activeReads === 0) {
+       ui.status.textContent = `File Sent (${formatBytes(sendFile.size)})`;
+       ui.status.style.color = '#22c55e';
+       sendBtn.disabled = false;
+       ui.cancelBtn.textContent = 'Clear';
+       ui.cancelBtn.style.color = 'white';
+       ui.cancelBtn.style.backgroundColor = '#ffaa00';
+       ui.cancelBtn.onclick = () => {
+        sendFilesDisplay.removeChild(ui.card);
+       };
+      }
+     };
+
+     reader.readAsArrayBuffer(slice);
     }
-   };
-
-   function sendChunk() {
-    if (sendingCancelled || !sendFile || !sendFileReader || sendOffset >= sendFile.size) return;
-    const slice = sendFile.slice(sendOffset, sendOffset + CHUNK_SIZE);
-    sendFileReader.readAsArrayBuffer(slice);
    }
 
-   sendChunk();
+   sendChunkPipeline(); // Start sending
   };
 
+  // File receiving
   socket.on("file-meta", (metadata) => {
+   socket.off("file-chunk");
+   socket.off("send-cancel-transfer");
+
    const ui = createFileCard(receivedFilesDisplay, metadata, false);
    let buffer = [];
    let receivedSize = 0;
@@ -524,12 +703,17 @@
     ui.progressBar.style.width = `${(receivedSize / metadata.size) * 100}%`;
 
     if (receivedSize >= metadata.size) {
-     ui.status.textContent = `${formatBytes(receivedSize)}`;
-     ui.status.style.color = 'black';
+     ui.status.textContent = `File received (${formatBytes(metadata.size)})`;
+     ui.status.style.color = '#22c55e';
      ui.progressBar.parentElement.style.display = 'none';
-     ui.cancelBtn.remove();
-     showToast("File received", "success");
      ui.downloadBtn.style.display = 'block';
+     // Change cancel to clear
+     ui.cancelBtn.textContent = 'Clear';
+     ui.cancelBtn.style.color = 'white';
+     ui.cancelBtn.style.backgroundColor = '#ffaa00';
+     ui.cancelBtn.onclick = () => {
+      receivedFilesDisplay.removeChild(ui.card);
+     };
     }
    });
 
@@ -548,55 +732,119 @@
        showToast("Cancelled by sender", "error");
        status.style.color = '#ef4444';
       }
-      if (progressBar) {
-       progressBar.style.backgroundColor = '#ef4444';
-      }
-      if (cancelBtn) cancelBtn.remove();
+      if (progressBar) progressBar.style.backgroundColor = '#ef4444';
+      if (cancelBtn)
+       cancelBtn.textContent = 'Clear';
+      cancelBtn.style.color = 'white';
+      cancelBtn.style.backgroundColor = '#ffaa00';
      }
     });
   });
 
+  // Toast notifications
   function showToast(message, type = 'info', options = {}) {
    const container = document.getElementById('toast-container');
    const toast = document.createElement('div');
    toast.className = `toast ${type}`;
-
    const {
     duration = 4500, dismissible = false
    } = options;
 
-   // Build toast content
    let innerHTML = `<span>${message}</span>`;
-
    if (dismissible) {
     innerHTML += `<button class="dismiss-btn" onclick="this.parentElement.remove()">❌</button>`;
    }
 
    toast.innerHTML = innerHTML;
    container.appendChild(toast);
-
-   // Override animation delay dynamically
    toast.style.animation = `slideIn 0.4s ease forwards, fadeOut 0.2s ease forwards ${duration - 1000}ms`;
 
-   // Auto remove
    const autoRemove = setTimeout(() => {
     if (toast.parentElement) toast.remove();
    },
     duration);
 
-   // Optional: cancel timeout on manual dismiss
    if (dismissible) {
     toast.querySelector('button').addEventListener('click', () => clearTimeout(autoRemove));
    }
   }
+
+  // Create file card element
+  function createFileCard(displayArea, metadata, isSender) {
+   const card = document.createElement('div');
+   card.className = 'file-card';
+   if (metadata.id) card.dataset.transferId = metadata.id;
+
+   // Title wrapper and title
+   const titleWrapper = document.createElement('div');
+   titleWrapper.className = 'file-card-title-wrapper';
+
+   const title = document.createElement('span');
+   title.className = 'file-card-title';
+   title.textContent = metadata.name;
+
+   titleWrapper.appendChild(title);
+   card.appendChild(titleWrapper);
+
+   // Animate scroll if overflow
+   setTimeout(() => {
+    if (title.scrollWidth > titleWrapper.clientWidth) {
+     title.style.animationPlayState = 'running';
+    }
+   },
+    100); // Slight delay for rendering
+
+   const status = document.createElement('div');
+   status.className = 'status-line';
+   status.textContent = `0 / ${formatBytes(metadata.size)}`;
+   card.appendChild(status);
+
+   const progressContainer = document.createElement('div');
+   progressContainer.className = 'progress-container';
+
+   const progressBar = document.createElement('div');
+   progressBar.className = 'progress-bar';
+   progressContainer.appendChild(progressBar);
+   card.appendChild(progressContainer);
+
+   const buttonContainer = document.createElement('div');
+   buttonContainer.className = 'button-container';
+
+   const cancelBtn = document.createElement('button');
+   cancelBtn.className = 'cancel-btn';
+   cancelBtn.textContent = 'Cancel';
+   buttonContainer.appendChild(cancelBtn);
+
+   let downloadBtn = null;
+   if (!isSender) {
+    downloadBtn = document.createElement('button');
+    downloadBtn.className = 'download-btn';
+    downloadBtn.textContent = 'Download';
+    downloadBtn.style.display = 'none';
+    buttonContainer.appendChild(downloadBtn);
+   }
+
+   card.appendChild(buttonContainer);
+   displayArea.prepend(card);
+
+   return {
+    card,
+    status,
+    progressBar,
+    cancelBtn,
+    downloadBtn
+   };
+  }
+
  </script>
 
-<!-- <script " to check toast " >
+
+ <script>
   document.getElementById("testbtn").addEventListener("click", function () {
-   showToast("toast hyyhuujjhyy 5ghuyhh tfvhyh test", "info", {
-    duration: 99999999, dismissible: true
+   showToast("Dismissable Toast with 120 sec", "info", {
+    duration: 120000, dismissible: true
    });
   });
- </script>-->
+ </script>
 </body>
 </html>
