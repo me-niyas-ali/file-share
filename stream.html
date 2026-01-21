@@ -1,121 +1,92 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>YouTube Watch Party</title>
   <meta charset="UTF-8" />
+  <title>Local Video Watch Party</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #fff;
-      text-align: center;
-    }
-    input, button {
-      padding: 10px;
-      font-size: 16px;
-      margin: 5px;
-    }
-    #player {
-      margin-top: 20px;
-    }
+    body { font-family: system-ui, sans-serif; background:#111; color:#eee; padding:20px }
+    video { width:100%; max-width:900px; background:black }
+    .box { margin-top:16px }
+    input, button { padding:8px; margin-top:8px }
+    code { background:#222; padding:4px 6px }
   </style>
 </head>
 <body>
+  <h1>📺 Local File Watch Party</h1>
 
-<h1>🎬 YouTube Watch Party</h1>
+  <div class="box">
+    <strong>1. Host:</strong> Choose a video file
+    <br />
+    <input type="file" id="fileInput" accept="video/*" />
+  </div>
 
-<input id="room" placeholder="Room ID">
-<input id="videoId" placeholder="YouTube Video ID">
-<button onclick="joinRoom()">Start / Join</button>
+  <div class="box">
+    <strong>2. Share this Room ID:</strong>
+    <div><code id="roomId">(generating…)</code></div>
+  </div>
 
-<div id="player"></div>
+  <div class="box">
+    <strong>3. Join a room:</strong>
+    <br />
+    <input id="joinId" placeholder="Enter room ID" />
+    <button onclick="joinRoom()">Join</button>
+  </div>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
-<!-- YouTube API -->
-<script src="https://www.youtube.com/iframe_api"></script>
+  <video id="video" controls></video>
 
 <script>
-/* 🔥 FIREBASE CONFIG — REPLACE THIS */
-const firebaseConfig = {
-  apiKey: "AIzaSyCCZyyRJXclXW7qVxK-5UtKhuVcq0G964M",
-  authDomain: "stream-watch-party-187a3.firebaseapp.com",
-  projectId: "stream-watch-party-187a3",
-  storageBucket: "stream-watch-party-187a3.firebasestorage.app",
-  messagingSenderId: "262596281197",
-  appId: "1:262596281197:web:53bb016122f62d57299064",
-  measurementId: "G-DQCQNCZE0R"
-};
+const video = document.getElementById('video');
+const roomIdEl = document.getElementById('roomId');
+let connections = [];
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+// Create peer (uses free PeerJS signaling server)
+const peer = new Peer();
 
-let player;
-let roomId;
-let isRemoteUpdate = false;
+peer.on('open', id => {
+  roomIdEl.textContent = id;
+});
+
+peer.on('connection', conn => {
+  setupConnection(conn);
+});
 
 function joinRoom() {
-  roomId = document.getElementById("room").value;
-  const videoId = document.getElementById("videoId").value;
+  const id = document.getElementById('joinId').value.trim();
+  if (!id) return;
+  const conn = peer.connect(id);
+  setupConnection(conn);
+}
 
-  if (!roomId || !videoId) {
-    alert("Enter Room ID and Video ID");
-    return;
+function setupConnection(conn) {
+  conn.on('open', () => {
+    connections.push(conn);
+  });
+
+  conn.on('data', msg => {
+    if (msg.type === 'play') video.play();
+    if (msg.type === 'pause') video.pause();
+    if (msg.type === 'seek') video.currentTime = msg.time;
+  });
+}
+
+function broadcast(msg) {
+  connections.forEach(c => c.send(msg));
+}
+
+// Sync controls
+video.addEventListener('play', () => broadcast({ type: 'play' }));
+video.addEventListener('pause', () => broadcast({ type: 'pause' }));
+video.addEventListener('seeked', () => broadcast({ type: 'seek', time: video.currentTime }));
+
+// Load local file (host only)
+document.getElementById('fileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) {
+    video.src = URL.createObjectURL(file);
   }
-
-  db.ref("rooms/" + roomId).set({
-    videoId,
-    action: "pause",
-    time: 0
-  });
-
-  initPlayer(videoId);
-  listenForUpdates();
-}
-
-function initPlayer(videoId) {
-  player = new YT.Player("player", {
-    height: "390",
-    width: "640",
-    videoId,
-    events: {
-      onStateChange: onPlayerStateChange
-    }
-  });
-}
-
-function onPlayerStateChange(event) {
-  if (isRemoteUpdate) return;
-
-  let action;
-  if (event.data === YT.PlayerState.PLAYING) action = "play";
-  if (event.data === YT.PlayerState.PAUSED) action = "pause";
-  if (!action) return;
-
-  db.ref("rooms/" + roomId).update({
-    action,
-    time: player.getCurrentTime()
-  });
-}
-
-function listenForUpdates() {
-  db.ref("rooms/" + roomId).on("value", snapshot => {
-    const data = snapshot.val();
-    if (!data || !player) return;
-
-    isRemoteUpdate = true;
-
-    player.seekTo(data.time, true);
-
-    if (data.action === "play") player.playVideo();
-    if (data.action === "pause") player.pauseVideo();
-
-    setTimeout(() => isRemoteUpdate = false, 500);
-  });
-}
+});
 </script>
-
 </body>
 </html>
