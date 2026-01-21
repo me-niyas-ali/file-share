@@ -42,10 +42,13 @@ const roomIdEl = document.getElementById('roomId');
 let connections = [];
 
 // Create peer (uses free PeerJS signaling server)
-const peer = new Peer();
+// Generate a 6-digit numeric room code
+const ROOM_CODE = Math.floor(100000 + Math.random() * 900000).toString();
+
+const peer = new Peer(ROOM_CODE);
 
 peer.on('open', id => {
-  roomIdEl.textContent = id;
+  roomIdEl.textContent = id; // 6-digit room code
 });
 
 peer.on('connection', conn => {
