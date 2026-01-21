@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>YouTube Watch Party</title>
+  <meta charset="UTF-8" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #fff;
+      text-align: center;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      margin: 5px;
+    }
+    #player {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🎬 YouTube Watch Party</h1>
+
+<input id="room" placeholder="Room ID">
+<input id="videoId" placeholder="YouTube Video ID">
+<button onclick="joinRoom()">Start / Join</button>
+
+<div id="player"></div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<!-- YouTube API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<script>
+/* 🔥 FIREBASE CONFIG — REPLACE THIS */
+const firebaseConfig = {
+  apiKey: "AIzaSyCCZyyRJXclXW7qVxK-5UtKhuVcq0G964M",
+  authDomain: "stream-watch-party-187a3.firebaseapp.com",
+  projectId: "stream-watch-party-187a3",
+  storageBucket: "stream-watch-party-187a3.firebasestorage.app",
+  messagingSenderId: "262596281197",
+  appId: "1:262596281197:web:53bb016122f62d57299064",
+  measurementId: "G-DQCQNCZE0R"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let player;
+let roomId;
+let isRemoteUpdate = false;
+
+function joinRoom() {
+  roomId = document.getElementById("room").value;
+  const videoId = document.getElementById("videoId").value;
+
+  if (!roomId || !videoId) {
+    alert("Enter Room ID and Video ID");
+    return;
+  }
+
+  db.ref("rooms/" + roomId).set({
+    videoId,
+    action: "pause",
+    time: 0
+  });
+
+  initPlayer(videoId);
+  listenForUpdates();
+}
+
+function initPlayer(videoId) {
+  player = new YT.Player("player", {
+    height: "390",
+    width: "640",
+    videoId,
+    events: {
+      onStateChange: onPlayerStateChange
+    }
+  });
+}
+
+function onPlayerStateChange(event) {
+  if (isRemoteUpdate) return;
+
+  let action;
+  if (event.data === YT.PlayerState.PLAYING) action = "play";
+  if (event.data === YT.PlayerState.PAUSED) action = "pause";
+  if (!action) return;
+
+  db.ref("rooms/" + roomId).update({
+    action,
+    time: player.getCurrentTime()
+  });
+}
+
+function listenForUpdates() {
+  db.ref("rooms/" + roomId).on("value", snapshot => {
+    const data = snapshot.val();
+    if (!data || !player) return;
+
+    isRemoteUpdate = true;
+
+    player.seekTo(data.time, true);
+
+    if (data.action === "play") player.playVideo();
+    if (data.action === "pause") player.pauseVideo();
+
+    setTimeout(() => isRemoteUpdate = false, 500);
+  });
+}
+</script>
+
+</body>
+</html>
